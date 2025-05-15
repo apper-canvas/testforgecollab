@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import getIcon from '../utils/iconUtils';
+import { createTestSuite } from '../services/testSuiteService';
 
 const MainFeature = ({ onAddTestSuite }) => {
   const [formStep, setFormStep] = useState(1);
@@ -9,10 +10,13 @@ const MainFeature = ({ onAddTestSuite }) => {
   const [suiteDescription, setSuiteDescription] = useState('');
   const [environment, setEnvironment] = useState('web');
   const [priority, setPriority] = useState('medium');
+  const [tags, setTags] = useState([]);
   const [testCases, setTestCases] = useState([
     { id: crypto.randomUUID(), name: '', description: '', steps: [] }
   ]);
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+  
   // Define icons
   const PlusIcon = getIcon('Plus');
   const SaveIcon = getIcon('Save');
@@ -29,48 +33,71 @@ const MainFeature = ({ onAddTestSuite }) => {
   const CheckIcon = getIcon('Check');
   const XIcon = getIcon('X');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    
+    let formErrors = {};
     
     // Validate
     if (suiteName.trim() === '') {
-      toast.error('Please enter a test suite name');
+      formErrors.name = 'Please enter a test suite name';
+      setErrors(formErrors);
+      setIsSubmitting(false);
       return;
     }
     
     if (testCases.some(tc => tc.name.trim() === '')) {
-      toast.error('All test cases must have a name');
+      formErrors.testCases = 'All test cases must have a name';
+      setErrors(formErrors);
+      setIsSubmitting(false);
       return;
     }
     
-    // Create new test suite
-    const newSuite = {
-      id: crypto.randomUUID(),
-      name: suiteName,
-      description: suiteDescription,
-      environment,
-      priority,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'Current User',
-      testCases: testCases.map(tc => ({
-        ...tc,
+    try {
+      // Create test suite data for the API
+      const testSuiteData = {
+        name: suiteName,
+        description: suiteDescription,
+        environment,
         priority,
-        status: 'active',
-        tags: [environment]
-      }))
-    };
-    
-    // Call parent handler
-    onAddTestSuite(newSuite);
-    
-    // Reset form
-    setSuiteName('');
-    setSuiteDescription('');
-    setEnvironment('web');
-    setPriority('medium');
-    setTestCases([{ id: crypto.randomUUID(), name: '', description: '', steps: [] }]);
-    setFormStep(1);
+        tags: [...tags, environment]
+      };
+      
+      // Call the API to create the test suite
+      const createdSuite = await createTestSuite(testSuiteData);
+      
+      // If we have test cases, create those too (in a real implementation)
+      // For now, we'll just add them to the created suite for display
+      const completeTestSuite = {
+        ...createdSuite,
+        testCases: testCases.map(tc => ({
+          id: crypto.randomUUID(),
+          name: tc.name,
+          description: tc.description,
+          priority,
+          status: 'active',
+          tags: [environment],
+          testSuiteId: createdSuite.Id
+        }))
+      };
+      
+      // Call parent handler with the created suite
+      onAddTestSuite(completeTestSuite);
+      toast.success("Test suite created successfully!");
+      
+      // Reset form
+      setSuiteName('');
+      setSuiteDescription('');
+      setEnvironment('web');
+      setPriority('medium');
+      setTestCases([{ id: crypto.randomUUID(), name: '', description: '', steps: [] }]);
+      setFormStep(1);
+    } catch (error) {
+      toast.error("Failed to create test suite: " + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const addTestCase = () => {
@@ -95,8 +122,10 @@ const MainFeature = ({ onAddTestSuite }) => {
   };
 
   const nextStep = () => {
+    let formErrors = {};
+    
     if (suiteName.trim() === '') {
-      toast.error('Please enter a test suite name');
+      formErrors.name = 'Please enter a test suite name';
       return;
     }
     setFormStep(2);
@@ -157,6 +186,7 @@ const MainFeature = ({ onAddTestSuite }) => {
                   onChange={(e) => setSuiteName(e.target.value)}
                   placeholder="Enter a descriptive name for your test suite"
                   className="input-field"
+                  className={`input-field ${errors.name ? 'border-red-500 dark:border-red-500' : ''}`}
                   required
                 />
               </div>
@@ -250,6 +280,7 @@ const MainFeature = ({ onAddTestSuite }) => {
                   type="button" 
                   onClick={nextStep}
                   className="btn btn-primary"
+                  disabled={isSubmitting}
                 >
                   <span>Next: Add Test Cases</span>
                   <ArrowRightIcon className="w-4 h-4 ml-2" />
@@ -310,6 +341,7 @@ const MainFeature = ({ onAddTestSuite }) => {
                           onChange={(e) => updateTestCase(testCase.id, 'name', e.target.value)}
                           placeholder="What are you testing?"
                           className="input-field"
+                           className={`input-field ${errors.testCases ? 'border-red-500 dark:border-red-500' : ''}`}
                           required
                         />
                       </div>
@@ -358,6 +390,7 @@ const MainFeature = ({ onAddTestSuite }) => {
                   type="button" 
                   onClick={previousStep}
                   className="btn btn-outline"
+                  disabled={isSubmitting}
                 >
                   <ArrowLeftIcon className="w-4 h-4 mr-2" />
                   <span>Back</span>
@@ -367,6 +400,7 @@ const MainFeature = ({ onAddTestSuite }) => {
                   <button 
                     type="submit"
                     className="btn btn-primary"
+                    disabled={isSubmitting}
                   >
                     <SaveIcon className="w-4 h-4 mr-2" />
                     <span>Save Test Suite</span>
@@ -375,7 +409,8 @@ const MainFeature = ({ onAddTestSuite }) => {
                   <button 
                     type="button"
                     className="btn btn-secondary"
-                    onClick={() => toast.info("This would run your test in a real implementation!")}
+                    onClick={() => toast.info("This would run your test in a real implementation")}
+                    disabled={isSubmitting}
                   >
                     <CirclePlayIcon className="w-4 h-4 mr-2" />
                     <span>Create & Run</span>
