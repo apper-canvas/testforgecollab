@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser, clearUser } from './store/userSlice';
 import Home from './pages/Home';
@@ -33,6 +33,7 @@ function App() {
   // Get authentication status with proper error handling
   const userState = useSelector((state) => state.user);
   const isAuthenticated = userState?.isAuthenticated || false;
+  
   // Initialize ApperUI once when the app loads
   useEffect(() => {
     const { ApperClient, ApperUI } = window.ApperSDK;
@@ -106,10 +107,19 @@ function App() {
     setIsInitialized(true);
   }, [dispatch, navigate]);
 
-  
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   // Authentication methods to share via context
   const authMethods = {
     isInitialized,
@@ -137,59 +147,49 @@ function App() {
     </div>;
   }
 
-    } else {
+  return (
     <AuthContext.Provider value={authMethods}>
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
-  }, [isDarkMode]);
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-  };
-            <div className="flex items-center space-x-4">
-              {isAuthenticated && (
-                <button
-                  onClick={authMethods.logout}
-                  className="p-2 rounded-full bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors text-surface-600 dark:text-surface-400"
-                  aria-label="Logout"
-                >
-                  <LogOutIcon className="w-5 h-5" />
-                </button>
-              )}
+      <div className="min-h-screen flex flex-col">
+        <header className="bg-white dark:bg-surface-800 shadow-sm">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <h1 className="text-xl sm:text-2xl font-bold text-primary">
+                <span>Test</span>
+                <span className="text-secondary">Forge</span>
+              </h1>
               
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-full bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
-                aria-label="Toggle dark mode"
-              >
-                {isDarkMode ? <SunIcon className="w-5 h-5 text-amber-400" /> : <MoonIcon className="w-5 h-5 text-surface-600" />}
-              </button>
+              <div className="flex items-center space-x-4">
+                {isAuthenticated && (
+                  <button
+                    onClick={authMethods.logout}
+                    className="p-2 rounded-full bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors text-surface-600 dark:text-surface-400"
+                    aria-label="Logout"
+                  >
+                    <LogOutIcon className="w-5 h-5" />
+                  </button>
+                )}
+                
+                <button
+                  onClick={toggleDarkMode}
+                  className="p-2 rounded-full bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                  aria-label="Toggle dark mode"
+                >
+                  {isDarkMode ? <SunIcon className="w-5 h-5 text-amber-400" /> : <MoonIcon className="w-5 h-5 text-surface-600" />}
+                </button>
+              </div>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-primary">
-              <span>Test</span>
-              <span className="text-secondary">Forge</span>
-            </h1>
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-full bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
-              aria-label="Toggle dark mode"
+          </div>
+        </header>
+
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 min-h-[calc(100vh-64px)]">
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/callback" element={<Callback />} />
             <Route path="/error" element={<ErrorPage />} />
             <Route path="/" element={isAuthenticated ? <Dashboard /> : <Home />} />
             <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
-            <Route path="*" element={isAuthenticated ? <NotFound /> : <Navigate to="/login" />} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 min-h-[calc(100vh-64px)]">
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<Home />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>
@@ -198,7 +198,6 @@ function App() {
       <ToastContainer
         position="bottom-right"
         autoClose={4000}
-    </AuthContext.Provider>
         hideProgressBar={false}
         newestOnTop
         closeOnClick
@@ -210,6 +209,7 @@ function App() {
         toastClassName="!bg-white dark:!bg-surface-800 !shadow-card"
       />
     </div>
+    </AuthContext.Provider>
   );
 }
 
